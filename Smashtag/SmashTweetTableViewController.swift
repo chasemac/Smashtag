@@ -7,29 +7,50 @@
 //
 
 import UIKit
+import Twitter
+import CoreData
 
 class SmashTweetTableViewController: TweetTableViewController {
 
-    override func viewDidLoad() {
-        super.viewDidLoad()
-
-        // Do any additional setup after loading the view.
-    }
-
-    override func didReceiveMemoryWarning() {
-        super.didReceiveMemoryWarning()
-        // Dispose of any resources that can be recreated.
+    var container: NSPersistentContainer? = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer
+    
+    override func insertTweets(_ newTweets: [Twitter.Tweet]) {
+        super.insertTweets(newTweets)
+        updateDatabase(with: newTweets)
     }
     
-
-    /*
-    // MARK: - Navigation
-
-    // In a storyboard-based application, you will often want to do a little preparation before navigation
-    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-        // Get the new view controller using segue.destinationViewController.
-        // Pass the selected object to the new view controller.
+    private func updateDatabase(with tweets: [Twitter.Tweet]) {
+        print("starting database load")
+        container?.performBackgroundTask { [weak self] (context) in
+            for twitterInfo in tweets {
+                // add tweet
+                _ = try? Tweet.findOrCreateTweet(matching: twitterInfo, in: context)
+            }
+            try? context.save()
+            print("done loading database")
+            self?.printDataBaseStatistics()
+        }
+        
     }
-    */
+    
+    private func printDataBaseStatistics() {
+        if let context = container?.viewContext {
+            context.perform {
+                if Thread.isMainThread {
+                    print("on main thread")
+                } else {
+                    print("off main thread")
+                }
+                let request: NSFetchRequest<Tweet> = Tweet.fetchRequest()
+                if let tweetCount = (try? context.fetch(request))?.count {
+                    print("\(tweetCount) Tweets")
+                }
+                if let tweeterCount = try? context.count(for: TwitterUser.fetchRequest()) {
+                    print("\(tweeterCount) Twitter users")
+                }
+            }
+            
+        }
+    }
 
 }
